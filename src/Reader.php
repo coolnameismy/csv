@@ -19,6 +19,7 @@ use CallbackFilterIterator;
 use Countable;
 use Iterator;
 use IteratorAggregate;
+use JsonSerializable;
 use League\Csv\Exception\RuntimeException;
 use SplFileObject;
 
@@ -33,20 +34,8 @@ use SplFileObject;
  * @method Generator fetchColumn(string|int $column_index) Returns the next value from a single CSV record field
  * @method Generator fetchPairs(string|int $offset_index, string|int $value_index) Fetches the next key-value pairs from the CSV document
  */
-class Reader extends AbstractCsv implements Countable, IteratorAggregate
+class Reader extends AbstractCsv implements Countable, IteratorAggregate, JsonSerializable
 {
-    /**
-     * @inheritdoc
-     */
-    protected $stream_filter_mode = STREAM_FILTER_READ;
-
-    /**
-     * The value to pad if the record is less than header size.
-     *
-     * @var mixed
-     */
-    protected $record_padding_value;
-
     /**
      * CSV Document header offset
      *
@@ -69,14 +58,9 @@ class Reader extends AbstractCsv implements Countable, IteratorAggregate
     protected $nb_records = -1;
 
     /**
-     * Returns the record padding value
-     *
-     * @return mixed
+     * @inheritdoc
      */
-    public function getRecordPaddingValue()
-    {
-        return $this->record_padding_value;
-    }
+    protected $stream_filter_mode = STREAM_FILTER_READ;
 
     /**
      * Returns the record offset used as header
@@ -124,7 +108,6 @@ class Reader extends AbstractCsv implements Countable, IteratorAggregate
     protected function setHeader(int $offset): array
     {
         $this->document->setFlags(SplFileObject::READ_CSV | SplFileObject::READ_AHEAD | SplFileObject::SKIP_EMPTY);
-        $this->document->setCsvControl($this->delimiter, $this->enclosure, $this->escape);
         $this->document->seek($offset);
         $header = $this->document->current();
         if (empty($header)) {
@@ -132,7 +115,7 @@ class Reader extends AbstractCsv implements Countable, IteratorAggregate
         }
 
         if (0 === $offset) {
-            return $this->removeBOM($header, mb_strlen($this->getInputBOM()), $this->enclosure);
+            return $this->removeBOM($header, mb_strlen($this->getInputBOM()), $this->getEnclosure());
         }
 
         return $header;
@@ -195,6 +178,14 @@ class Reader extends AbstractCsv implements Countable, IteratorAggregate
     }
 
     /**
+     * @inheritdoc
+     */
+    public function jsonSerialize(): array
+    {
+        return iterator_to_array($this->getRecords(), false);
+    }
+
+    /**
      * Returns the CSV records in an iterator object.
      *
      * Each CSV record is represented as a simple array of string or null values.
@@ -218,7 +209,6 @@ class Reader extends AbstractCsv implements Countable, IteratorAggregate
         };
         $bom = $this->getInputBOM();
         $this->document->setFlags(SplFileObject::READ_CSV | SplFileObject::READ_AHEAD | SplFileObject::SKIP_EMPTY);
-        $this->document->setCsvControl($this->delimiter, $this->enclosure, $this->escape);
 
         $records = $this->stripBOM(new CallbackFilterIterator($this->document, $normalized), $bom);
         if (null !== $this->header_offset) {
@@ -269,7 +259,7 @@ class Reader extends AbstractCsv implements Countable, IteratorAggregate
         $field_count = count($header);
         $mapper = function (array $record) use ($header, $field_count): array {
             if (count($record) != $field_count) {
-                $record = array_slice(array_pad($record, $field_count, $this->record_padding_value), 0, $field_count);
+                $record = array_slice(array_pad($record, $field_count, null), 0, $field_count);
             }
 
             return array_combine($header, $record);
@@ -298,24 +288,10 @@ class Reader extends AbstractCsv implements Countable, IteratorAggregate
                 return $record;
             }
 
-            return $this->removeBOM($record, $bom_length, $this->enclosure);
+            return $this->removeBOM($record, $bom_length, $this->getEnclosure());
         };
 
         return new MapIterator($iterator, $mapper);
-    }
-
-    /**
-     * Set the record padding value
-     *
-     * @param mixed $record_padding_value
-     *
-     * @return static
-     */
-    public function setRecordPaddingValue($record_padding_value): self
-    {
-        $this->record_padding_value = $record_padding_value;
-
-        return $this;
     }
 
     /**

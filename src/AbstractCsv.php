@@ -32,32 +32,19 @@ abstract class AbstractCsv implements ByteSequence
     use ValidatorTrait;
 
     /**
-     * The CSV document
+     * The stream filter mode (read or write)
      *
-     * @var StreamIterator|SplFileObject
+     * @var int
      */
-    protected $document;
+    protected $stream_filter_mode;
+
 
     /**
-     * the field delimiter (one character only)
+     * collection of stream filters
      *
-     * @var string
+     * @var bool[]
      */
-    protected $delimiter = ',';
-
-    /**
-     * the field enclosure character (one character only)
-     *
-     * @var string
-     */
-    protected $enclosure = '"';
-
-    /**
-     * the field escape character (one character only)
-     *
-     * @var string
-     */
-    protected $escape = '\\';
+    protected $stream_filters = [];
 
     /**
      * The CSV document BOM sequence
@@ -74,18 +61,11 @@ abstract class AbstractCsv implements ByteSequence
     protected $output_bom = '';
 
     /**
-     * collection of stream filters
+     * The CSV document
      *
-     * @var bool[]
+     * @var StreamIterator|SplFileObject
      */
-    protected $stream_filters = [];
-
-    /**
-     * The stream filter mode (read or write)
-     *
-     * @var int
-     */
-    protected $stream_filter_mode;
+    protected $document;
 
     /**
      * New instance
@@ -123,10 +103,6 @@ abstract class AbstractCsv implements ByteSequence
     public static function createFromFileObject(SplFileObject $file): self
     {
         $csv = new static($file);
-        $controls = $file->getCsvControl();
-        $csv->delimiter = $controls[0];
-        $csv->enclosure = $controls[1];
-        $csv->escape = $controls[2];
 
         return $csv;
     }
@@ -176,7 +152,7 @@ abstract class AbstractCsv implements ByteSequence
      */
     public function getDelimiter(): string
     {
-        return $this->delimiter;
+        return $this->document->getCsvControl()[0];
     }
 
     /**
@@ -186,7 +162,7 @@ abstract class AbstractCsv implements ByteSequence
      */
     public function getEnclosure(): string
     {
-        return $this->enclosure;
+        return $this->document->getCsvControl()[1];
     }
 
     /**
@@ -196,7 +172,7 @@ abstract class AbstractCsv implements ByteSequence
      */
     public function getEscape(): string
     {
-        return $this->escape;
+        return $this->document->getCsvControl()[2];
     }
 
     /**
@@ -339,9 +315,11 @@ abstract class AbstractCsv implements ByteSequence
      */
     public function setDelimiter(string $delimiter): self
     {
-        $char = $this->filterControl($delimiter, 'delimiter', __METHOD__);
-        if ($char != $this->delimiter) {
-            $this->delimiter = $char;
+        $delimiter = $this->filterControl($delimiter, 'delimiter', __METHOD__);
+        $controls = $this->document->getCsvControl();
+        if ($delimiter != $controls[0]) {
+            $controls[0] = $delimiter;
+            $this->document->setCsvControl(...$controls);
             $this->resetProperties();
         }
 
@@ -364,9 +342,11 @@ abstract class AbstractCsv implements ByteSequence
      */
     public function setEnclosure(string $enclosure): self
     {
-        $char = $this->filterControl($enclosure, 'enclosure', __METHOD__);
-        if ($char != $this->enclosure) {
-            $this->enclosure = $char;
+        $enclosure = $this->filterControl($enclosure, 'enclosure', __METHOD__);
+        $controls = $this->document->getCsvControl();
+        if ($enclosure != $controls[1]) {
+            $controls[1] = $enclosure;
+            $this->document->setCsvControl(...$controls);
             $this->resetProperties();
         }
 
@@ -382,12 +362,13 @@ abstract class AbstractCsv implements ByteSequence
      */
     public function setEscape(string $escape): self
     {
-        $char = $this->filterControl($escape, 'escape', __METHOD__);
-        if ($char != $this->escape) {
-            $this->escape = $char;
+        $escape = $this->filterControl($escape, 'escape', __METHOD__);
+        $controls = $this->document->getCsvControl();
+        if ($escape != $controls[2]) {
+            $controls[2] = $escape;
+            $this->document->setCsvControl(...$controls);
             $this->resetProperties();
         }
-
 
         return $this;
     }

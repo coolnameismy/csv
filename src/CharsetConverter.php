@@ -30,9 +30,22 @@ use Traversable;
  */
 class CharsetConverter extends php_user_filter
 {
-    use ValidatorTrait;
-
     const FILTERNAME = 'convert.league.csv';
+
+    /**
+     * the filter name used to instantiate the class with
+     *
+     * @var string
+     */
+    public $filtername;
+
+    /**
+     * Contents of the params parameter passed to stream_filter_append
+     * or stream_filter_prepend functions
+     *
+     * @var mixed
+     */
+    public $params;
 
     /**
      * The records input encoding charset
@@ -49,6 +62,17 @@ class CharsetConverter extends php_user_filter
     protected $output_encoding = 'UTF-8';
 
     /**
+     * Static method to register the class as a stream filter
+     */
+    public static function register()
+    {
+        $filtername = self::FILTERNAME.'.*';
+        if (!in_array($filtername, stream_get_filters())) {
+            stream_filter_register($filtername, __CLASS__);
+        }
+    }
+
+    /**
      * Static method to return the stream filter filtername
      *
      * @param  string $input_encoding
@@ -63,33 +87,6 @@ class CharsetConverter extends php_user_filter
             self::filterEncoding($input_encoding),
             self::filterEncoding($output_encoding)
         );
-    }
-
-    /**
-     * Static method to register the class as a stream filter
-     */
-    public static function register()
-    {
-        $filtername = self::FILTERNAME.'.*';
-        if (!in_array($filtername, stream_get_filters())) {
-            stream_filter_register($filtername, __CLASS__);
-        }
-    }
-
-    /**
-     * Static method to add the stream filter to a {@link AbstractCsv} object
-     *
-     * @param AbstractCsv $csv
-     * @param string      $input_encoding
-     * @param string      $output_encoding
-     *
-     * @return AbstractCsv
-     */
-    public static function addTo(AbstractCsv $csv, string $input_encoding, string $output_encoding): AbstractCsv
-    {
-        self::register();
-
-        return $csv->addStreamFilter(self::getFiltername($input_encoding, $output_encoding));
     }
 
     /**
@@ -118,17 +115,19 @@ class CharsetConverter extends php_user_filter
     }
 
     /**
-     * @inheritdoc
+     * Static method to add the stream filter to a {@link AbstractCsv} object
+     *
+     * @param AbstractCsv $csv
+     * @param string      $input_encoding
+     * @param string      $output_encoding
+     *
+     * @return AbstractCsv
      */
-    public function filter($in, $out, &$consumed, $closing)
+    public static function addTo(AbstractCsv $csv, string $input_encoding, string $output_encoding): AbstractCsv
     {
-        while ($res = stream_bucket_make_writeable($in)) {
-            $res->data = @mb_convert_encoding($res->data, $this->output_encoding, $this->input_encoding);
-            $consumed += $res->datalen;
-            stream_bucket_append($out, $res);
-        }
+        self::register();
 
-        return PSFS_PASS_ON;
+        return $csv->addStreamFilter(self::getFiltername($input_encoding, $output_encoding));
     }
 
     /**
@@ -153,6 +152,20 @@ class CharsetConverter extends php_user_filter
         } catch (Throwable $e) {
             return false;
         }
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function filter($in, $out, &$consumed, $closing)
+    {
+        while ($res = stream_bucket_make_writeable($in)) {
+            $res->data = @mb_convert_encoding($res->data, $this->output_encoding, $this->input_encoding);
+            $consumed += $res->datalen;
+            stream_bucket_append($out, $res);
+        }
+
+        return PSFS_PASS_ON;
     }
 
     /**
@@ -186,32 +199,6 @@ class CharsetConverter extends php_user_filter
         if (!is_int($offset)) {
             $offset = mb_convert_encoding((string) $offset, $this->output_encoding, $this->input_encoding);
         }
-    }
-
-    /**
-     * Convert Csv file into UTF-8
-     *
-     * @param array|Traversable $records the CSV records collection
-     *
-     * @return Iterator
-     */
-    public function convert($records): Iterator
-    {
-        $records = $this->filterIterable($records, __METHOD__);
-        if (is_array($records)) {
-            $records = new ArrayIterator($records);
-        }
-
-        if ($this->output_encoding === $this->input_encoding) {
-            return $records;
-        }
-
-        $convert = function (array $record): array {
-            array_walk($record, [$this, 'encodeField']);
-            return $record;
-        };
-
-        return new MapIterator($records, $convert);
     }
 
     /**
@@ -252,5 +239,30 @@ class CharsetConverter extends php_user_filter
         $clone->output_encoding = $encoding;
 
         return $clone;
+    }
+
+    /**
+     * Convert Csv file into UTF-8
+     *
+     * @param array|Traversable $records the CSV records collection
+     *
+     * @return Iterator
+     */
+    public function convert($records): Iterator
+    {
+        if (is_array($records)) {
+            $records = new ArrayIterator($records);
+        }
+
+        if ($this->output_encoding === $this->input_encoding) {
+            return $records;
+        }
+
+        $convert = function (array $record): array {
+            array_walk($record, [$this, 'encodeField']);
+            return $record;
+        };
+
+        return new MapIterator($records, $convert);
     }
 }

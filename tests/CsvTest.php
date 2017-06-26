@@ -2,7 +2,7 @@
 
 namespace LeagueTest\Csv;
 
-use League\Csv\Exception\InvalidArgumentException;
+use League\Csv\Exception\LengthException;
 use League\Csv\Exception\OutOfRangeException;
 use League\Csv\Exception\RuntimeException;
 use League\Csv\Reader;
@@ -170,7 +170,7 @@ class CsvTest extends TestCase
      */
     public function testDelimeter()
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(LengthException::class);
         $this->csv->setDelimiter('o');
         $this->assertSame('o', $this->csv->getDelimiter());
         $this->csv->setDelimiter('foo');
@@ -220,7 +220,7 @@ class CsvTest extends TestCase
      */
     public function testEscape()
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(LengthException::class);
         $this->csv->setEscape('o');
         $this->assertSame('o', $this->csv->getEscape());
 
@@ -233,7 +233,7 @@ class CsvTest extends TestCase
      */
     public function testEnclosure()
     {
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(LengthException::class);
         $this->csv->setEnclosure('o');
         $this->assertSame('o', $this->csv->getEnclosure());
 
@@ -320,5 +320,19 @@ class CsvTest extends TestCase
         $csv->addStreamFilter('string.toupper');
         $csv->insertOne([1, 'two', 3, "new\r\nline"]);
         $this->assertContains("1,TWO,3,\"NEW\r\nLINE\"", (string) $csv);
+    }
+
+    /**
+     * @covers League\Csv\StreamIterator
+     */
+    public function testSetCsvControlWithStreamIterator()
+    {
+        $raw_csv = "john,doe,john.doe@example.com\njane,doe,jane.doe@example.com\n";
+        $csv = Reader::createFromString($raw_csv);
+        $csv
+            ->setDelimiter(',')
+            ->setEnclosure('"')
+            ->setEscape('|');
+        $this->assertSame('|', $csv->getEscape());
     }
 }

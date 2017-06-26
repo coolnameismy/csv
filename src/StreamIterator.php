@@ -232,6 +232,18 @@ class StreamIterator implements SeekableIterator
     }
 
     /**
+     * Set CSV control
+     *
+     * @see http://php.net/manual/en/splfileobject.getcsvcontrol.php
+     *
+     * @return string[]
+     */
+    public function getCsvControl()
+    {
+        return [$this->delimiter, $this->enclosure, $this->escape];
+    }
+
+    /**
      * Set StreamIterator Flags
      *
      * @see http://php.net/manual/en/splfileobject.setflags.php

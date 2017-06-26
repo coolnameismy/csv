@@ -8,6 +8,7 @@ use League\Csv\Exception\OutOfRangeException;
 use League\Csv\Exception\RuntimeException;
 use League\Csv\Reader;
 use PHPUnit\Framework\TestCase;
+use TypeError;
 
 /**
  * @group converter
@@ -23,6 +24,15 @@ class CharsetConverterTest extends TestCase
     {
         $this->expectException(OutOfRangeException::class);
         (new CharsetConverter())->inputEncoding('');
+    }
+
+    /**
+     * @covers ::convert
+     */
+    public function testCharsetConverterTriggersExceptionOnConversion()
+    {
+        $this->expectException(TypeError::class);
+        (new CharsetConverter())->convert('toto');
     }
 
     /**

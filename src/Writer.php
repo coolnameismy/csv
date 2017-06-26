@@ -28,9 +28,11 @@ use Traversable;
 class Writer extends AbstractCsv
 {
     /**
-     * @inheritdoc
+     * callable collection to format the record before insertion
+     *
+     * @var callable[]
      */
-    protected $stream_filter_mode = STREAM_FILTER_WRITE;
+    protected $formatters = [];
 
     /**
      * callable collection to validate the record before insertion
@@ -40,11 +42,11 @@ class Writer extends AbstractCsv
     protected $validators = [];
 
     /**
-     * callable collection to format the record before insertion
+     * newline character
      *
-     * @var callable[]
+     * @var string
      */
-    protected $formatters = [];
+    protected $newline = "\n";
 
     /**
      * Insert records count for flushing
@@ -54,18 +56,16 @@ class Writer extends AbstractCsv
     protected $flush_counter = 0;
 
     /**
-     * newline character
-     *
-     * @var string
-     */
-    protected $newline = "\n";
-
-    /**
      * Buffer flush threshold
      *
      * @var int|null
      */
     protected $flush_threshold;
+
+    /**
+     * @inheritdoc
+     */
+    protected $stream_filter_mode = STREAM_FILTER_WRITE;
 
     /**
      * Returns the current newline sequence characters
@@ -122,7 +122,7 @@ class Writer extends AbstractCsv
     {
         $record = array_reduce($this->formatters, [$this, 'formatRecord'], $record);
         $this->validateRecord($record);
-        $bytes = $this->document->fputcsv($record, $this->delimiter, $this->enclosure, $this->escape);
+        $bytes = $this->document->fputcsv($record, ...$this->document->getCsvControl());
         if (!$bytes) {
             throw InsertionException::createFromStream($record);
         }

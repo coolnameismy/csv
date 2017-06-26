@@ -80,22 +80,6 @@ class ReaderTest extends TestCase
     }
 
     /**
-     * @covers ::getRecordPaddingValue
-     * @covers ::setRecordPaddingValue
-     */
-    public function testRecordPaddingValue()
-    {
-        $this->assertNull($this->csv->getRecordPaddingValue());
-        $this->csv->setRecordPaddingValue('toto');
-        $this->assertSame('toto', $this->csv->getRecordPaddingValue());
-        $this->csv->setHeaderOffset(0);
-        foreach ($this->csv as $record) {
-            $this->assertCount(4, $record);
-            $this->assertContains('toto', $record);
-        }
-    }
-
-    /**
      * @covers ::computeHeader
      * @covers ::combineHeader
      */
@@ -322,5 +306,13 @@ class ReaderTest extends TestCase
         foreach ($res as $record) {
             $this->assertSame($keys, array_keys($record));
         }
+    }
+
+    /**
+     * @covers ::jsonSerialize
+     */
+    public function testJsonSerialize()
+    {
+        $this->assertSame(json_encode($this->expected, false), json_encode($this->csv));
     }
 }
